@@ -1,0 +1,26 @@
+#! /bin/bash
+
+############## SETTINGS #####################
+
+#PRIMER_FWD=/Users/vagmitapabuwal/Documents/ngs_py38/Ligand_JP/Cow2_Feb/CDR1F_POOLED.fasta
+PRIMER_FWD=../../Primer_rat/IGK_R1.fasta
+PRIMER_REV=../../Primer_rat/IGK_R2.fasta
+SAMPLES=(VK-1-2_S2_L001 VK-1-1_S1_L001)
+THREADS=12
+
+############################################
+
+
+for i in "${SAMPLES[@]}"
+do
+#       gunzip  "${i}"_*.gz  
+        AssemblePairs.py align -1 "${i}"_R1_001.fastq -2 "${i}"_R2_001.fastq --coord illumina --rc tail --outname "${i}" --log "${i}"
+        FilterSeq.py quality -s "${i}"_assemble-pass.fastq -q 20 --outname "${i}" --log "${i}"
+        MaskPrimers.py align -s "${i}"_quality-pass.fastq -p $PRIMER_FWD  --mode mask   --pf VPRIMER --outname "${i}"FWD --log "${i}"_FWD.log
+        MaskPrimers.py align -s "${i}"FWD_primers-pass.fastq  -p $PRIMER_REV   --mode cut --revpr  --pf CPRIMER --outname "${i}"FR --log "${i}"_FR.log
+        CollapseSeq.py -s "${i}"FR_primers-pass.fastq -n 20 --inner --uf CPRIMER --cf VPRIMER --act set --outname "${i}"
+        SplitSeq.py group -s "${i}"_collapse-unique.fastq -f DUPCOUNT --num 2 --outname "${i}"split
+        fastq2fasta.py "${i}"split_atleast-2.fastq
+        AssignGenes.py igblast -s "${i}"split_atleast-2.fasta -b /usr/local/share/igblast/ --organism human --loci ig --format airr --outname "${i}"
+
+done
